@@ -1,4 +1,18 @@
-const API_BASE = window.location.origin + '/api';
+const API_URL = "https://tu-backend-flask-xxxxx-uc.a.run.app/api";  // Reemplaza con tu URL de Cloud Run
+
+export const fetchProducts = async () => {
+  const response = await fetch(`${API_URL}/products`);
+  return await response.json();
+};
+
+export const login = async (username, password) => {
+  const response = await fetch(`${API_URL}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  return await response.json();
+};
 
 // ----------------------- Estado global -----------------------
 let appState = {
