@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Administración de Usuarios{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Administración de Usuarios</h2>
+        <p class="text-muted">Gestiona los usuarios del sistema.</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">
+                <h5>Agregar/Editar Usuario</h5>
+            </div>
+            <div class="card-body">
+                <div id="usuarioAlert"></div>
+                <form id="formUsuario">
+                    <input type="hidden" id="usuarioId" name="usuario_id">
+                    
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Usuario</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre completo</label>
+                        <input type="text" class="form-control" id="nombre" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="rol" class="form-label">Rol</label>
+                        <select class="form-select" id="rol" required>
+                            <option value="">Seleccionar rol...</option>
+                            <option value="admin">Administrador</option>
+                            <option value="gerente">Gerente</option>
+                            <option value="empleado">Empleado</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="local" class="form-label">Local</label>
+                        <select class="form-select" id="local">
+                            <option value="">Sin local asignado</option>
+                            {% for local in locales %}
+                            <option value="{{ local[0] }}">{{ local[1] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="activo">
+                            <label class="form-check-label" for="activo">Activo</label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button type="submit" class="btn btn-primary me-md-2">Guardar</button>
+                        <button type="button" class="btn btn-secondary me-md-2" onclick="limpiarFormulario()">Limpiar</button>
+                        <button type="button" class="btn btn-danger" onclick="eliminarUsuario()" id="btnEliminar" disabled>Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Lista de Usuarios</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="cargarUsuarios()">
+                    <i class="fas fa-sync-alt me-1"></i>Actualizar
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Nombre</th>
+                                <th>Rol</th>
+                                <th>Local</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaUsuarios">
+                            {% for usuario in usuarios %}
+                            <tr>
+                                <td>{{ usuario[1] }}</td>
+                                <td>{{ usuario[3] }}</td>
+                                <td>
+                                    {% if usuario[4] == 'admin' %}
+                                    <span class="badge bg-danger">Administrador</span>
+                                    {% elif usuario[4] == 'gerente' %}
+                                    <span class="badge bg-warning">Gerente</span>
+                                    {% else %}
+                                    <span class="badge bg-info">Empleado</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ usuario[6] or '-' }}</td>
+                                <td>
+                                    {% if usuario[5] == 1 %}
+                                    <span class="badge bg-success">Activo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="editarUsuario({{ usuario[0] }}, '{{ usuario[1] }}', '{{ usuario[2] }}', '{{ usuario[3] }}', '{{ usuario[4] }}', {{ usuario[5] }}, {{ usuario[7] or 'null' }})">
+                                        <i class="fas fa-edit me-1"></i>Editar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Manejar envío del formulario
+document.getElementById('formUsuario').addEventListener('submit', function(e) {
+    e.preventDefault();
+    guardarUsuario();
+});
+
+// Cargar usuario para editar
+function editarUsuario(id, username, password, nombre, rol, activo, localId) {
+    console.log('Editando usuario:', {id, username, nombre, rol, activo, localId});
+    
+    document.getElementById('usuarioId').value = id;
+    document.getElementById('username').value = username;
+    document.getElementById('password').value = password;
+    document.getElementById('nombre').value = nombre;
+    document.getElementById('rol').value = rol;
+    document.getElementById('local').value = localId || '';
+    document.getElementById('activo').checked = activo === 1;
+    document.getElementById('btnEliminar').disabled = false;
+    
+    // Scroll al formulario
+    document.getElementById('formUsuario').scrollIntoView({behavior: 'smooth'});
+}
+
+// Guardar usuario
+function guardarUsuario() {
+    const formData = {
+        usuario_id: document.getElementById('usuarioId').value,
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        nombre: document.getElementById('nombre').value,
+        rol: document.getElementById('rol').value,
+        local_id: document.getElementById('local').value || null,
+        activo: document.getElementById('activo').checked ? 1 : 0
+    };
+    
+    console.log('Guardando usuario:', formData);
+    
+    fetch('/api/guardar-usuario', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarAlertaUsuario(data.message, 'success');
+            limpiarFormulario();
+            cargarUsuarios();
+        } else {
+            mostrarAlertaUsuario(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        mostrarAlertaUsuario('Error: ' + error, 'danger');
+    });
+}
+
+// Eliminar usuario
+function eliminarUsuario() {
+    const usuarioId = document.getElementById('usuarioId').value;
+    const usuarioNombre = document.getElementById('nombre').value;
+    
+    if (!usuarioId) return;
+    
+    if (confirm(`¿Está seguro de eliminar el usuario "${usuarioNombre}"? Esta acción no se puede deshacer.`)) {
+        fetch('/api/eliminar-usuario', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                usuario_id: usuarioId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarAlertaUsuario(data.message, 'success');
+                limpiarFormulario();
+                cargarUsuarios();
+            } else {
+                mostrarAlertaUsuario('Error: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            mostrarAlertaUsuario('Error: ' + error, 'danger');
+        });
+    }
+}
+
+// Limpiar formulario
+function limpiarFormulario() {
+    document.getElementById('usuarioId').value = '';
+    document.getElementById('formUsuario').reset();
+    document.getElementById('btnEliminar').disabled = true;
+    document.getElementById('usuarioAlert').innerHTML = '';
+}
+
+// Cargar lista de usuarios
+function cargarUsuarios() {
+    window.location.reload();
+}
+
+// Mostrar alerta
+function mostrarAlertaUsuario(mensaje, tipo) {
+    document.getElementById('usuarioAlert').innerHTML = `
+        <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Auto-cerrar después de 5 segundos
+    setTimeout(() => {
+        const alert = document.querySelector('#usuarioAlert .alert');
+        if (alert) {
+            bootstrap.Alert.getOrCreateInstance(alert).close();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes{% endblock %}
+{% block page_title %}📈 Reportes{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header card-header-custom">
+        <h5 class="mb-0">Generar Reportes</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">Reporte de Consumo</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Producto:</label>
+                            <select class="form-select" id="productoReporte">
+                                <option value="">Seleccionar producto...</option>
+                                {% for producto in productos %}
+                                <option value="{{ producto[0] }}">{{ producto[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Período:</label>
+                            <select class="form-select" id="periodoReporte">
+                                <option value="7">Últimos 7 días</option>
+                                <option value="30" selected>Últimos 30 días</option>
+                                <option value="90">Últimos 3 meses</option>
+                                <option value="180">Últimos 6 meses</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="generarReporte()">
+                            <i class="fas fa-chart-line me-2"></i>Generar Reporte
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">Exportar Datos</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Formato:</label>
+                            <select class="form-select" id="formatoExportacion">
+                                <option value="pdf">PDF</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rango de fechas:</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="date" class="form-control" id="fechaDesde">
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" class="form-control" id="fechaHasta">
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-success w-100" onclick="exportarDatos()">
+                            <i class="fas fa-download me-2"></i>Exportar Datos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Resultados del Reporte</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultadoReporte" class="text-center py-4">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Seleccione un producto y genere un reporte para ver los resultados</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+// Configurar fechas por defecto
+document.addEventListener('DOMContentLoaded', function() {
+    const hoy = new Date();
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hace30Dias.getDate() - 30);
+    
+    document.getElementById('fechaDesde').value = hace30Dias.toISOString().split('T')[0];
+    document.getElementById('fechaHasta').value = hoy.toISOString().split('T')[0];
+});
+
+async function generarReporte() {
+    const productoId = document.getElementById('productoReporte').value;
+    const periodo = document.getElementById('periodoReporte').value;
+    
+    if (!productoId) {
+        alert('Por favor, seleccione un producto');
+        return;
+    }
+    
+    try {
+        // Mostrar indicador de carga
+        const resultadoDiv = document.getElementById('resultadoReporte');
+        resultadoDiv.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Generando reporte...</p>
+            </div>
+        `;
+        
+        const response = await fetch('/api/generar-reporte', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                producto_id: productoId,
+                periodo: periodo
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarResultadoReporte(data);
+        } else {
+            resultadoDiv.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <p class="text-danger">Error: ${data.message || 'No se pudo generar el reporte'}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        const resultadoDiv = document.getElementById('resultadoReporte');
+        resultadoDiv.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <p class="text-danger">Error al generar el reporte: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+function mostrarResultadoReporte(data) {
+    const resultadoDiv = document.getElementById('resultadoReporte');
+    
+    let html = `
+        <h4>Reporte de Consumo: ${data.producto_nombre}</h4>
+        <p class="text-muted mb-4">Período: últimos ${data.periodo} días</p>
+        
+        <!-- Gráfico -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="consumoChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabla de datos -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Entradas (ml)</th>
+                        <th>Salidas (ml)</th>
+                        <th>Consumo Neto (ml)</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    // Calcular totales
+    let totalEntradas = 0;
+    let totalSalidas = 0;
+    
+    data.fechas.forEach((fecha, index) => {
+        const entrada = data.entradas[index] || 0;
+        const salida = data.salidas[index] || 0;
+        const neto = entrada - salida;
+        
+        totalEntradas += entrada;
+        totalSalidas += salida;
+        
+        html += `
+            <tr>
+                <td>${fecha}</td>
+                <td class="text-success">${entrada.toFixed(1)}</td>
+                <td class="text-danger">${salida.toFixed(1)}</td>
+                <td class="fw-bold ${neto >= 0 ? 'text-success' : 'text-danger'}">
+                    ${neto.toFixed(1)}
+                </td>
+            </tr>
+        `;
+    });
+    
+    const totalNeto = totalEntradas - totalSalidas;
+    
+    html += `
+                </tbody>
+                <tfoot class="table-info">
+                    <tr>
+                        <th>TOTALES</th>
+                        <th class="text-success">${totalEntradas.toFixed(1)}</th>
+                        <th class="text-danger">${totalSalidas.toFixed(1)}</th>
+                        <th class="fw-bold ${totalNeto >= 0 ? 'text-success' : 'text-danger'}">
+                            ${totalNeto.toFixed(1)}
+                        </th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <div class="mt-3">
+            <button class="btn btn-primary me-2" onclick="exportarPDF()">
+                <i class="fas fa-file-pdf me-2"></i>Exportar PDF
+            </button>
+            <button class="btn btn-success" onclick="imprimirReporte()">
+                <i class="fas fa-print me-2"></i>Imprimir
+            </button>
+        </div>
+    `;
+    
+    resultadoDiv.innerHTML = html;
+    
+    // Crear gráfico
+    crearGraficoConsumo(data);
+}
+
+function crearGraficoConsumo(data) {
+    const ctx = document.getElementById('consumoChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.fechas,
+            datasets: [
+                {
+                    label: 'Entradas',
+                    data: data.entradas,
+                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Salidas',
+                    data: data.salidas,
+                    backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Mililitros (ml)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Fecha'
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function exportarDatos() {
+    const formato = document.getElementById('formatoExportacion').value;
+    const fechaDesde = document.getElementById('fechaDesde').value;
+    const fechaHasta = document.getElementById('fechaHasta').value;
+    
+    if (!fechaDesde || !fechaHasta) {
+        alert('Por favor, seleccione un rango de fechas válido');
+        return;
+    }
+    
+    if (formato === 'excel') {
+        try {
+            const response = await fetch('/api/exportar-movimientos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    producto_id: 'todos',
+                    tipo: 'todos',
+                    fecha_desde: fechaDesde,
+                    fecha_hasta: fechaHasta
+                })
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `movimientos_${new Date().toISOString().split('T')[0]}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } else {
+                alert('Error al exportar movimientos');
+            }
+        } catch (error) {
+            alert('Error al exportar: ' + error);
+        }
+    } else if (formato === 'pdf') {
+        exportarPDF();
+    }
+}
+
+function exportarPDF() {
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Título
+        doc.setFontSize(16);
+        doc.text('Reporte de Inventario', 105, 15, { align: 'center' });
+        
+        // Fecha de generación
+        doc.setFontSize(10);
+        doc.text(`Generado: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 105, 22, { align: 'center' });
+        
+        // Contenido del reporte
+        const productoSelect = document.getElementById('productoReporte');
+        const productoTexto = productoSelect.value ? productoSelect.options[productoSelect.selectedIndex].text : 'Todos los productos';
+        const periodoSelect = document.getElementById('periodoReporte');
+        const periodoTexto = periodoSelect.options[periodoSelect.selectedIndex].text;
+        
+        doc.setFontSize(12);
+        doc.text(`Producto: ${productoTexto}`, 20, 40);
+        doc.text(`Período: ${periodoTexto}`, 20, 50);
+        
+        // Obtener datos de la tabla si existe
+        const tabla = document.querySelector('.table');
+        if (tabla) {
+            const headers = [];
+            const rows = [];
+            
+            // Obtener encabezados
+            tabla.querySelectorAll('thead th').forEach(th => {
+                headers.push(th.textContent.trim());
+            });
+            
+            // Obtener datos
+            tabla.querySelectorAll('tbody tr').forEach(tr => {
+                const row = [];
+                tr.querySelectorAll('td').forEach(td => {
+                    row.push(td.textContent.trim());
+                });
+                rows.push(row);
+            });
+            
+            // Obtener totales
+            const footers = [];
+            tabla.querySelectorAll('tfoot th').forEach(th => {
+                footers.push(th.textContent.trim());
+            });
+            
+            // Agregar tabla al PDF
+            doc.autoTable({
+                startY: 60,
+                head: [headers],
+                body: rows,
+                foot: [footers],
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [41, 128, 185],
+                    textColor: 255
+                }
+            });
+        } else {
+            doc.text('No hay datos para mostrar', 20, 60);
+        }
+        
+        // Guardar el PDF
+        doc.save(`reporte_inventario_${new Date().getTime()}.pdf`);
+        
+    } catch (error) {
+        console.error('Error al generar PDF:', error);
+        alert('Error al generar el PDF: ' + error.message);
+    }
+}
+
+function imprimirReporte() {
+    window.print();
+}
+</script>
+
+<style>
+@media print {
+    .card-header, .btn, .form-select, .form-control,
+    #productoReporte, #periodoReporte, #formatoExportacion,
+    #fechaDesde, #fechaHasta {
+        display: none !important;
+    }
+    
+    .card {
+        border: none !important;
+    }
+    
+    .table {
+        font-size: 12px;
+    }
+    
+    h4 {
+        font-size: 16px;
+    }
+}
+</style>
+{% endblock %}

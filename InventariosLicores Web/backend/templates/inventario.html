@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Inventario{% endblock %}
+{% block page_title %}📦 Inventario{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header card-header-custom">
+        <h5 class="mb-0">Lista de Productos</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex justify-content-between mb-3">
+            <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+            <a href="{{ url_for('productos') }}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus"></i> Gestionar Productos
+            </a>
+        </div>
+
+        {% if inventario %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Marca</th>
+                        <th>Tipo</th>
+                        <th>Disponible (ml)</th>
+                        <th>Bot. Completas</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in inventario %}
+                    <tr>
+                        <td>{{ producto.nombre }}</td>
+                        <td>{{ producto.marca }}</td>
+                        <td>{{ producto.tipo }}</td>
+                        <td>{{ "%.1f"|format(producto.total_ml) }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ producto.botellas }}</span>
+                        </td>
+                        <td>
+                            {% if producto.porcentaje == 0 and producto.botellas == 0 %}
+                            <span class="badge bg-secondary">Vacío (0.0%)</span>
+                            {% elif producto.porcentaje == 0 and producto.botellas > 0 %}
+                            <span class="badge bg-success">OK (Botellas: {{ producto.botellas }})</span>
+                            {% elif producto.porcentaje < 20 %}
+                            <span class="badge bg-danger">Bajo ({{ "%.1f"|format(producto.porcentaje) }}%)</span>
+                            {% elif producto.porcentaje < 50 %}
+                            <span class="badge bg-warning text-dark">Medio ({{ "%.1f"|format(producto.porcentaje) }}%)</span>
+                            {% else %}
+                            <span class="badge bg-success">OK ({{ "%.1f"|format(producto.porcentaje) }}%)</span>
+                            {% endif %}
+                            <br>
+                            <small class="text-muted">Total: {{ producto.botellas + 1 }} bot.</small>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-success" onclick="abrirModalMovimiento({{ producto.id }})">
+                                <i class="fas fa-exchange-alt"></i> Movimiento
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="agregarBotellaCompleta({{ producto.id }})">
+                                <i class="fas fa-wine-bottle"></i> + Botella
+                            </button>
+                            <button class="btn btn-sm btn-info" onclick="registrarPesoManual({{ producto.id }}, '{{ producto.nombre }}')">
+                                <i class="fas fa-weight"></i> Peso
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-warehouse fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No hay productos en inventario</h5>
+            <a href="{{ url_for('productos') }}" class="btn btn-primary mt-2">
+                <i class="fas fa-plus"></i> Agregar Productos
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para movimiento -->
+<div class="modal fade" id="modalMovimiento" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Movimiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="infoProducto" class="mb-3 p-3 bg-light rounded"></div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Tipo de Movimiento:</label>
+                    <select class="form-select" id="tipoMovimiento">
+                        <option value="entrada">Entrada (Agregar)</option>
+                        <option value="salida">Salida (Consumir)</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Cantidad (ml):</label>
+                    <input type="number" step="1" class="form-control" id="cantidadMl" placeholder="0" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Notas:</label>
+                    <textarea class="form-control" id="notasMovimiento" rows="2" placeholder="Observaciones adicionales"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="registrarMovimiento()">Registrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para peso -->
+<div class="modal fade" id="pesoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Peso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="pesoForm">
+                    <input type="hidden" id="productoIdPeso">
+                    <div class="mb-3">
+                        <label class="form-label">Producto</label>
+                        <input type="text" id="productoNombrePeso" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Peso Total (gramos)</label>
+                        <input type="number" step="0.1" class="form-control" id="pesoTotal" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="registrarPeso()">Registrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let productoSeleccionado = null;
+
+// Función para abrir modal de movimiento
+function abrirModalMovimiento(productoId) {
+    productoSeleccionado = productoId;
+    
+    // Cargar información del producto
+    fetch(`/api/inventario-actual/${productoId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const p = data.producto;
+                document.getElementById('infoProducto').innerHTML = `
+                    <strong>${p.nombre} - ${p.marca}</strong><br>
+                    Inventario actual: ${p.inventario_actual_ml.toFixed(1)}ml<br>
+                    Porcentaje: ${p.porcentaje_actual.toFixed(1)}%<br>
+                    Peso actual: ${p.peso_total_actual.toFixed(1)}g
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('infoProducto').innerHTML = 'Error al cargar información del producto';
+        });
+    
+    // Resetear formulario
+    document.getElementById('cantidadMl').value = '';
+    document.getElementById('notasMovimiento').value = '';
+    document.getElementById('tipoMovimiento').value = 'entrada';
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalMovimiento'));
+    modal.show();
+}
+
+// Función para registrar movimiento
+async function registrarMovimiento() {
+    const cantidad = parseFloat(document.getElementById('cantidadMl').value);
+    const tipo = document.getElementById('tipoMovimiento').value;
+    const notas = document.getElementById('notasMovimiento').value;
+    
+    if (!cantidad || cantidad <= 0) {
+        alert('Ingrese una cantidad válida mayor a 0');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/registrar-volumen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                producto_id: productoSeleccionado,
+                volumen_ml: cantidad,
+                tipo: tipo,
+                notas: notas
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Movimiento registrado correctamente');
+            // Cerrar modal y recargar
+            bootstrap.Modal.getInstance(document.getElementById('modalMovimiento')).hide();
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error al registrar movimiento: ' + error);
+    }
+}
+
+// Función para agregar botella completa
+async function agregarBotellaCompleta(productoId) {
+    if (!confirm('¿Agregar una botella completa al inventario?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/agregar-botella', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                producto_id: productoId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Botella agregada correctamente');
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error al agregar botella: ' + error);
+    }
+}
+
+// Función para abrir modal de peso
+function registrarPesoManual(productoId, productoNombre) {
+    document.getElementById('productoIdPeso').value = productoId;
+    document.getElementById('productoNombrePeso').value = productoNombre;
+    document.getElementById('pesoTotal').value = '';
+    
+    // Mostrar el modal correctamente
+    const modalElement = document.getElementById('pesoModal');
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+// Función para registrar peso
+async function registrarPeso() {
+    const productoId = document.getElementById('productoIdPeso').value;
+    const pesoTotal = parseFloat(document.getElementById('pesoTotal').value);
+    
+    if (!pesoTotal || pesoTotal <= 0) {
+        alert('Ingrese un peso válido mayor a 0');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/registrar-peso', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                producto_id: productoId,
+                peso_total: pesoTotal
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Peso registrado correctamente');
+            bootstrap.Modal.getInstance(document.getElementById('pesoModal')).hide();
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error al registrar peso: ' + error);
+    }
+}
+</script>
+{% endblock %}

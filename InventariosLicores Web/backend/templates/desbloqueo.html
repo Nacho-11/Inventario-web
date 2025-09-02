@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Aplicación Bloqueada{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card">
+            <div class="card-header bg-danger text-white text-center">
+                <h4><i class="fas fa-lock me-2"></i>Aplicación Bloqueada</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>La aplicación está bloqueada</strong><br>
+                    Licencia vence en {{ dias_restantes }} días ({{ fecha_vencimiento }})
+                </div>
+                
+                <div id="desbloqueoAlert"></div>
+                
+                <form id="desbloqueoForm">
+                    <div class="mb-3">
+                        <label for="tiempo" class="form-label">Tiempo de desbloqueo:</label>
+                        <select class="form-select" id="tiempo" required>
+                            <option value="1 mes">1 mes</option>
+                            <option value="3 meses">3 meses</option>
+                            <option value="6 meses">6 meses</option>
+                            <option value="1 año">1 año</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="clave" class="form-label">Clave maestra:</label>
+                        <input type="password" class="form-control" id="clave" required>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Desbloquear</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <small class="text-muted">Si no tiene la clave maestra, contacte al administrador</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejar envío del formulario
+    document.getElementById('desbloqueoForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            clave: document.getElementById('clave').value,
+            tiempo: document.getElementById('tiempo').value
+        };
+        
+        fetch('/desbloqueo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.href = data.redirect;
+            } else {
+                document.getElementById('desbloqueoAlert').innerHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        ${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('desbloqueoAlert').innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    Error de conexión: ${error}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        });
+    });
+});
+</script>
+{% endblock %}

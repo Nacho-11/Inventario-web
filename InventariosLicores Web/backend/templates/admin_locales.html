@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Administración de Locales{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Administración de Locales</h2>
+        <p class="text-muted">Gestiona los locales del sistema.</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">
+                <h5>Agregar/Editar Local</h5>
+            </div>
+            <div class="card-body">
+                <div id="localAlert"></div>
+                <form id="formLocal">
+                    <input type="hidden" id="localId" name="local_id">
+                    
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="direccion" class="form-label">Dirección</label>
+                        <textarea class="form-control" id="direccion" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="telefono" class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" id="telefono">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="activo">
+                            <label class="form-check-label" for="activo">Activo</label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button type="submit" class="btn btn-primary me-md-2">Guardar</button>
+                        <button type="button" class="btn btn-secondary me-md-2" onclick="limpiarFormulario()">Limpiar</button>
+                        <button type="button" class="btn btn-danger" onclick="eliminarLocal()" id="btnEliminar" disabled>Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Lista de Locales</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="cargarLocales()">
+                    <i class="fas fa-sync-alt me-1"></i>Actualizar
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Dirección</th>
+                                <th>Teléfono</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaLocales">
+                            {% for local in locales %}
+                            <tr>
+                                <td>{{ local[1] }}</td>
+                                <td>{{ local[2] or '-' }}</td>
+                                <td>{{ local[3] or '-' }}</td>
+                                <td>
+                                    {% if local[4] == 1 %}
+                                    <span class="badge bg-success">Activo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="cargarLocal({{ local[0] }}, '{{ local[1] }}', '{{ local[2] or '' }}', '{{ local[3] or '' }}', {{ local[4] }})">
+                                        <i class="fas fa-edit me-1"></i>Editar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Manejar envío del formulario
+document.getElementById('formLocal').addEventListener('submit', function(e) {
+    e.preventDefault();
+    guardarLocal();
+});
+
+// Cargar local para editar
+function cargarLocal(id, nombre, direccion, telefono, activo) {
+    document.getElementById('localId').value = id;
+    document.getElementById('nombre').value = nombre;
+    document.getElementById('direccion').value = direccion;
+    document.getElementById('telefono').value = telefono;
+    document.getElementById('activo').checked = activo === 1;
+    document.getElementById('btnEliminar').disabled = false;
+}
+
+// Guardar local
+function guardarLocal() {
+    const formData = {
+        local_id: document.getElementById('localId').value,
+        nombre: document.getElementById('nombre').value,
+        direccion: document.getElementById('direccion').value,
+        telefono: document.getElementById('telefono').value,
+        activo: document.getElementById('activo').checked
+    };
+    
+    fetch('/api/guardar-local', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            limpiarFormulario();
+            cargarLocales();
+        } else {
+            document.getElementById('localAlert').innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('localAlert').innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                Error: ${error}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    });
+}
+
+// Eliminar local
+function eliminarLocal() {
+    const localId = document.getElementById('localId').value;
+    const localNombre = document.getElementById('nombre').value;
+    
+    if (!localId) return;
+    
+    if (confirm(`¿Está seguro de eliminar el local "${localNombre}"? Esta acción no se puede deshacer.`)) {
+        fetch('/api/eliminar-local', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                local_id: localId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                limpiarFormulario();
+                cargarLocales();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+    }
+}
+
+// Limpiar formulario
+function limpiarFormulario() {
+    document.getElementById('localId').value = '';
+    document.getElementById('formLocal').reset();
+    document.getElementById('btnEliminar').disabled = true;
+    document.getElementById('localAlert').innerHTML = '';
+}
+
+// Cargar lista de locales
+function cargarLocales() {
+    window.location.reload();
+}
+</script>
+{% endblock %}

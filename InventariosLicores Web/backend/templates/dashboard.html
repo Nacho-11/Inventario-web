@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}📊 Dashboard - {{ local_nombre }}{% endblock %}
+
+{% block content %}
+<!-- Selector de Local (solo para administradores) -->
+{% if user_role == 'admin' %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header card-header-custom">
+                <h5 class="mb-0">Seleccionar Local</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('dashboard') }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <select class="form-select" name="local_id" onchange="this.form.submit()">
+                                {% for local in todos_locales %}
+                                <option value="{{ local[0] }}" {% if local[0] == session.local_id %}selected{% endif %}>
+                                    {{ local[1] }} {% if local[3] == 0 %}(Inactivo){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">Selecciona un local para ver su inventario</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Tarjetas de estadísticas -->
+    <div class="col-md-3 mb-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_productos }}</h5>
+                        <p class="card-text mb-0">Productos</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-warehouse fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_botellas }}</h5>
+                        <p class="card-text mb-0">Botellas</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-wine-bottle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ productos_bajos_count }}</h5>
+                        <p class="card-text mb-0">Bajos Inventario</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ movimientos_hoy }}</h5>
+                        <p class="card-text mb-0">Movimientos Hoy</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exchange-alt fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Gráfico de niveles de inventario -->
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-header card-header-custom">
+                <h5 class="mb-0">Niveles de Inventario - {{ local_nombre }}</h5>
+            </div>
+            <div class="card-body p-2">
+                <div style="position: relative; height: 220px;">
+                    <canvas id="inventarioChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Productos bajos de inventario -->
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header card-header-custom">
+                <h5 class="mb-0">Productos con Inventario Bajo (<20%)</h5>
+            </div>
+            <div class="card-body">
+                {% if productos_bajos %}
+                <div class="list-group">
+                    {% for producto in productos_bajos %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ producto[0] }} {{ producto[1] }}</h6>
+                            <span class="badge bg-danger">{{ "%.1f"|format(producto[5]) }}%</span>
+                        </div>
+                        <p class="mb-1 small">{{ producto[2] }}</p>
+                        <small class="text-muted">{{ "%.1f"|format(producto[3]) }}ml / {{ "%.0f"|format(producto[4]) }}ml</small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <p class="text-muted">No hay productos con inventario bajo</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Movimientos recientes -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header card-header-custom d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Movimientos Recientes - {{ local_nombre }}</h5>
+                <a href="{{ url_for('movimientos') }}" class="btn btn-sm btn-outline-primary">
+                    Ver todos
+                </a>
+            </div>
+            <div class="card-body">
+                {% if movimientos_recientes %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Producto</th>
+                                <th>Tipo</th>
+                                <th>Cantidad (ml)</th>
+                                <th>Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in movimientos_recientes %}
+                            <tr>
+                                <td>{{ mov[0] }}</td>
+                                <td>{{ mov[1] }}</td>
+                                <td>
+                                    {% if mov[2] == 'entrada' %}
+                                    <span class="badge bg-success">Entrada</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Salida</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.1f"|format(mov[3]) }}</td>
+                                <td>{{ mov[5] }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-exchange-alt fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No hay movimientos recientes</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Datos para el gráfico
+const productos = [
+    {% for producto in inventario_chart %}
+    {
+        nombre: '{{ producto.nombre }}',
+        porcentaje: {{ producto.porcentaje }},
+        estado: '{{ producto.estado }}'
+    },
+    {% endfor %}
+];
+
+// Configurar colores según el estado
+const colores = productos.map(p => {
+    if (p.porcentaje === 0) return '#777777'; // Gris para vacío
+    if (p.porcentaje < 20) return '#dc3545';  // Rojo para bajo
+    if (p.porcentaje < 50) return '#ffc107';  // Amarillo para medio
+    return '#198754';                         // Verde para OK
+});
+
+// Acortar nombres largos para mejor visualización
+const nombresAcortados = productos.map(p => {
+    const nombre = p.nombre;
+    if (nombre.length > 15) {
+        return nombre.substring(0, 12) + '...';
+    }
+    return nombre;
+});
+
+// Crear gráfico
+const ctx = document.getElementById('inventarioChart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: nombresAcortados,
+        datasets: [{
+            label: 'Inventario (%)',
+            data: productos.map(p => p.porcentaje),
+            backgroundColor: colores,
+            borderColor: colores.map(color => color + '80'),
+            borderWidth: 1,
+            barThickness: 10,
+            maxBarThickness: 12,
+            categoryPercentage: 0.8,
+            barPercentage: 0.7
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {
+            padding: {
+                left: 5,
+                right: 5,
+                top: 5,
+                bottom: 5
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                titleFont: {
+                    size: 12
+                },
+                bodyFont: {
+                    size: 12
+                },
+                callbacks: {
+                    label: function(context) {
+                        const producto = productos[context.dataIndex];
+                        return `${producto.nombre}: ${context.parsed.x}%`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                    font: {
+                        size: 10
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Porcentaje (%)',
+                    font: {
+                        size: 11
+                    }
+                }
+            },
+            y: {
+                ticks: {
+                    autoSkip: false,
+                    font: {
+                        size: 10
+                    }
+                },
+                grid: {
+                    display: false
+                }
+            }
+        }
+    }
+});
+
+// Función para actualizar el dashboard cada 30 segundos
+async function actualizarDashboard() {
+    try {
+        const response = await fetch('/api/actualizar-dashboard', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.success) {
+                // Actualizar el gráfico con los nuevos datos
+                chart.data.datasets[0].data = data.inventario_chart.map(p => p.porcentaje);
+                
+                // Actualizar colores según el estado
+                chart.data.datasets[0].backgroundColor = data.inventario_chart.map(p => {
+                    if (p.porcentaje === 0) return '#777777';
+                    if (p.porcentaje < 20) return '#dc3545';
+                    if (p.porcentaje < 50) return '#ffc107';
+                    return '#198754';
+                });
+                
+                chart.update('none');
+            }
+        }
+    } catch (error) {
+        console.error('Error al actualizar dashboard:', error);
+    }
+}
+
+// Llamar a la función cada 30 segundos
+setInterval(actualizarDashboard, 30000);
+
+// Actualizar el dashboard cada 30 segundos
+setInterval(actualizarDashboard, 30000);
+
+// También actualizar cuando la ventana gana el foco
+window.addEventListener('focus', actualizarDashboard);
+</script>
+{% endblock %}

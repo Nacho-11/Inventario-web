@@ -1,0 +1,562 @@
+{% extends "base.html" %}
+
+{% block title %}Productos{% endblock %}
+{% block page_title %}📦 Productos{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header card-header-custom d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Gestión de Productos</h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="cargarProductos()">
+            <i class="fas fa-sync-alt me-1"></i> Actualizar
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <!-- Formulario de producto -->
+            <div class="col-md-5">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">{% if editar_producto %}Editar{% else %}Agregar{% endif %} Producto</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="productoAlert"></div>
+                        
+                        <!-- Selector de licor comercial por pasos -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Seleccionar Licor Comercial</label>
+                            
+                            <!-- Paso 1: Selección de Tipo -->
+                            <div class="mb-3">
+                                <label for="licor_tipo" class="form-label">Tipo de Licor *</label>
+                                <select class="form-select" id="licor_tipo" onchange="cargarMarcas()" required>
+                                    <option value="">Seleccione el tipo...</option>
+                                    <option value="Whisky">Whisky</option>
+                                    <option value="Ron">Ron</option>
+                                    <option value="Vodka">Vodka</option>
+                                    <option value="Tequila">Tequila</option>
+                                    <option value="Brandy">Brandy</option>
+                                    <option value="Ginebra">Ginebra</option>
+                                    <option value="Cognac">Cognac</option>
+                                    <option value="Pisco">Pisco</option>
+                                    <option value="Vermouth">Vermouth</option>
+                                    <option value="Licor">Licor</option>
+                                    <option value="Bitter">Bitter</option>
+                                    <option value="Champagne">Champagne</option>
+                                    <option value="Cava">Cava</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Paso 2: Selección de Marca -->
+                            <div class="mb-3">
+                                <label for="licor_marca" class="form-label">Marca *</label>
+                                <select class="form-select" id="licor_marca" onchange="cargarNombres()" disabled required>
+                                    <option value="">Seleccione la marca...</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Paso 3: Selección de Nombre -->
+                            <div class="mb-3">
+                                <label for="licor_nombre" class="form-label">Nombre *</label>
+                                <select class="form-select" id="licor_nombre" onchange="cargarPresentaciones()" disabled required>
+                                    <option value="">Seleccione el nombre...</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Paso 4: Selección de Presentación -->
+                            <div class="mb-3">
+                                <label for="licor_presentacion" class="form-label">Presentación *</label>
+                                <select class="form-select" id="licor_presentacion" onchange="cargarDatosLicor()" disabled required>
+                                    <option value="">Seleccione la presentación...</option>
+                                </select>
+                            </div>
+                            
+                            <small class="text-muted">Complete los campos anteriores para cargar automáticamente los datos del licor</small>
+                        </div>
+                        
+                        <form id="formProducto">
+                            <input type="hidden" id="productoId" name="producto_id" value="{{ editar_producto.id if editar_producto else '' }}">
+                            
+                            <div class="mb-3">
+                                <label for="nombre" class="form-label">Nombre del Producto *</label>
+                                <input type="text" class="form-control" id="nombre" name="nombre" 
+                                       value="{{ editar_producto.nombre if editar_producto else '' }}" required readonly>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="marca" class="form-label">Marca *</label>
+                                        <input type="text" class="form-control" id="marca" name="marca" 
+                                               value="{{ editar_producto.marca if editar_producto else '' }}" required readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="tipo" class="form-label">Tipo *</label>
+                                        <input type="text" class="form-control" id="tipo" name="tipo" 
+                                               value="{{ editar_producto.tipo if editar_producto else '' }}" required readonly>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="presentacion" class="form-label">Presentación *</label>
+                                        <input type="text" class="form-control" id="presentacion" name="presentacion" 
+                                               value="{{ editar_producto.presentacion if editar_producto else '' }}" required readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="densidad" class="form-label">Densidad (g/ml) *</label>
+                                        <input type="number" step="0.001" class="form-control" id="densidad" name="densidad" 
+                                               value="{{ editar_producto.densidad if editar_producto else '0.95' }}" required readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="capacidad_ml" class="form-label">Capacidad (ml) *</label>
+                                        <input type="number" class="form-control" id="capacidad_ml" name="capacidad_ml" 
+                                               value="{{ editar_producto.capacidad_ml if editar_producto else '750' }}" required readonly>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="peso_envase" class="form-label">Peso Envase (g) *</label>
+                                <input type="number" class="form-control" id="peso_envase" name="peso_envase" 
+                                       value="{{ editar_producto.peso_envase if editar_producto else '500' }}" required readonly>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="minimo_inventario" class="form-label">Mínimo Inventario (%)</label>
+                                <input type="number" class="form-control" id="minimo_inventario" name="minimo_inventario" 
+                                       value="{{ (editar_producto.minimo_inventario * 100) if editar_producto else '20' }}" min="0" max="100">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="activo" name="activo" 
+                                           {% if not editar_producto or editar_producto.activo %}checked{% endif %}>
+                                    <label class="form-check-label" for="activo">Producto Activo</label>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2 d-md-flex">
+                                <button type="submit" class="btn btn-primary me-md-2">
+                                    <i class="fas fa-save me-1"></i> {% if editar_producto %}Actualizar{% else %}Guardar{% endif %}
+                                </button>
+                                <button type="button" class="btn btn-secondary me-md-2" onclick="limpiarFormulario()">
+                                    <i class="fas fa-times me-1"></i> Limpiar
+                                </button>
+                                {% if editar_producto %}
+                                <button type="button" class="btn btn-danger" onclick="eliminarProducto({{ editar_producto.id }}, '{{ editar_producto.nombre }}')">
+                                    <i class="fas fa-trash me-1"></i> Eliminar
+                                </button>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de productos -->
+            <div class="col-md-7">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Productos Registrados ({{ productos|length }})</h6>
+                    </div>
+                    <div class="card-body">
+                        {% if productos %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Marca</th>
+                                        <th>Tipo</th>
+                                        <th>Presentación</th>
+                                        <th>Capacidad</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for producto in productos %}
+                                    <tr>
+                                        <td>{{ producto[1] }}</td>
+                                        <td>{{ producto[2] }}</td>
+                                        <td><span class="badge bg-info">{{ producto[3] }}</span></td>
+                                        <td>{{ producto[6] if producto[6] else producto[5]|string + 'ml' }}</td>
+                                        <td>{{ producto[5] }}ml</td>
+                                        <td>
+                                            {% if producto[9] == 1 %}
+                                            <span class="badge bg-success">Activo</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">Inactivo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('productos') }}?editar={{ producto[0] }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    onclick="eliminarProducto({{ producto[0] }}, '{{ producto[1]|replace("'", "\\'") }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-wine-bottle fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No hay productos registrados</p>
+                            <p class="small text-muted">Utiliza el formulario para agregar tu primer producto</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Variables globales para almacenar licores comerciales
+let licoresComerciales = [];
+
+// Cargar licores comerciales al iniciar
+document.addEventListener('DOMContentLoaded', function() {
+    cargarTodosLosLicores();
+    
+    // Setear valores por defecto si estamos editando
+    {% if editar_producto %}
+    document.getElementById('tipo').value = '{{ editar_producto.tipo }}';
+    document.getElementById('presentacion').value = '{{ editar_producto.presentacion if editar_producto.presentacion else "" }}';
+    {% endif %}
+});
+
+// Cargar todos los licores comerciales
+function cargarTodosLosLicores() {
+    fetch('/api/licores-comerciales', {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            if (response.status === 401) {
+                // Redirigir a login si no está autenticado
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            licoresComerciales = data.licores;
+            console.log('Licores cargados:', licoresComerciales.length);
+            
+            // Debug: ver coñacs cargados
+            const conacs = licoresComerciales.filter(l => l.tipo.toLowerCase().includes('coñac') || l.tipo.toLowerCase().includes('conac'));
+            console.log('Coñacs encontrados:', conacs);
+        } else {
+            showAlert('danger', data.message || 'Error al cargar licores');
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar licores comerciales:', error);
+        showAlert('danger', 'Error al cargar los licores comerciales: ' + error.message);
+    });
+}
+
+// Cargar marcas según el tipo seleccionado
+function cargarMarcas() {
+    const tipo = document.getElementById('licor_tipo').value;
+    const marcaSelect = document.getElementById('licor_marca');
+    const nombreSelect = document.getElementById('licor_nombre');
+    const presentacionSelect = document.getElementById('licor_presentacion');
+    
+    // Resetear selects dependientes
+    marcaSelect.innerHTML = '<option value="">Seleccione la marca...</option>';
+    nombreSelect.innerHTML = '<option value="">Seleccione el nombre...</option>';
+    presentacionSelect.innerHTML = '<option value="">Seleccione la presentación...</option>';
+    nombreSelect.disabled = true;
+    presentacionSelect.disabled = true;
+    
+    if (!tipo) {
+        marcaSelect.disabled = true;
+        return;
+    }
+    
+    // Normalizar tipo para búsqueda (manejar variaciones como "Coñac", "Conac", etc.)
+    const tipoNormalizado = tipo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // Filtrar marcas por tipo (comparación case-insensitive y sin acentos)
+    const marcas = [...new Set(licoresComerciales
+        .filter(licor => {
+            const licorTipoNormalizado = licor.tipo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return licorTipoNormalizado === tipoNormalizado;
+        })
+        .map(licor => licor.marca)
+    )].sort();
+    
+    console.log(`Marcas para tipo "${tipo}":`, marcas);
+    
+    // Llenar select de marcas
+    marcas.forEach(marca => {
+        const option = document.createElement('option');
+        option.value = marca;
+        option.textContent = marca;
+        marcaSelect.appendChild(option);
+    });
+    
+    marcaSelect.disabled = marcas.length === 0;
+}
+
+// Cargar nombres según la marca seleccionada
+function cargarNombres() {
+    const tipo = document.getElementById('licor_tipo').value;
+    const marca = document.getElementById('licor_marca').value;
+    const nombreSelect = document.getElementById('licor_nombre');
+    const presentacionSelect = document.getElementById('licor_presentacion');
+    
+    // Resetear selects dependientes
+    nombreSelect.innerHTML = '<option value="">Seleccione el nombre...</option>';
+    presentacionSelect.innerHTML = '<option value="">Seleccione la presentación...</option>';
+    presentacionSelect.disabled = true;
+    
+    if (!tipo || !marca) {
+        nombreSelect.disabled = true;
+        return;
+    }
+    
+    // Filtrar nombres por tipo y marca (comparación case-insensitive)
+    const nombres = [...new Set(licoresComerciales
+        .filter(licor => licor.tipo.toLowerCase() === tipo.toLowerCase() && licor.marca === marca)
+        .map(licor => licor.nombre)
+    )].sort();
+    
+    // Llenar select de nombres
+    nombres.forEach(nombre => {
+        const option = document.createElement('option');
+        option.value = nombre;
+        option.textContent = nombre;
+        nombreSelect.appendChild(option);
+    });
+    
+    nombreSelect.disabled = nombres.length === 0;
+}
+
+// Cargar presentaciones según el nombre seleccionado
+function cargarPresentaciones() {
+    const tipo = document.getElementById('licor_tipo').value;
+    const marca = document.getElementById('licor_marca').value;
+    const nombre = document.getElementById('licor_nombre').value;
+    const presentacionSelect = document.getElementById('licor_presentacion');
+    
+    // Resetear select de presentaciones
+    presentacionSelect.innerHTML = '<option value="">Seleccione la presentación...</option>';
+    
+    if (!tipo || !marca || !nombre) {
+        presentacionSelect.disabled = true;
+        return;
+    }
+    
+    // Filtrar presentaciones por tipo, marca y nombre (comparación case-insensitive)
+    const presentaciones = [...new Set(licoresComerciales
+        .filter(licor => licor.tipo.toLowerCase() === tipo.toLowerCase() && 
+                        licor.marca === marca && 
+                        licor.nombre === nombre)
+        .map(licor => licor.presentacion)
+    )].sort((a, b) => {
+        // Ordenar por capacidad (extraer números para ordenar)
+        const numA = parseInt(a.replace(/\D/g, '')) || 0;
+        const numB = parseInt(b.replace(/\D/g, '')) || 0;
+        return numA - numB;
+    });
+    
+    // Llenar select de presentaciones
+    presentaciones.forEach(presentacion => {
+        const option = document.createElement('option');
+        option.value = presentacion;
+        option.textContent = presentacion;
+        presentacionSelect.appendChild(option);
+    });
+    
+    presentacionSelect.disabled = presentaciones.length === 0;
+}
+
+// Cargar datos del licor seleccionado
+function cargarDatosLicor() {
+    const tipo = document.getElementById('licor_tipo').value;
+    const marca = document.getElementById('licor_marca').value;
+    const nombre = document.getElementById('licor_nombre').value;
+    const presentacion = document.getElementById('licor_presentacion').value;
+    
+    if (!tipo || !marca || !nombre || !presentacion) return;
+    
+    // Buscar el licor específico (comparación case-insensitive)
+    const licor = licoresComerciales.find(l => 
+        l.tipo.toLowerCase() === tipo.toLowerCase() && 
+        l.marca === marca && 
+        l.nombre === nombre && 
+        l.presentacion === presentacion
+    );
+    
+    if (licor) {
+        // Autocompletar campos del formulario
+        document.getElementById('nombre').value = licor.nombre;
+        document.getElementById('marca').value = licor.marca;
+        document.getElementById('tipo').value = licor.tipo;
+        document.getElementById('presentacion').value = licor.presentacion;
+        document.getElementById('densidad').value = licor.densidad;
+        document.getElementById('capacidad_ml').value = licor.capacidad_ml;
+        document.getElementById('peso_envase').value = licor.peso_envase;
+        
+        showAlert('success', 'Datos del licor comercial cargados automáticamente');
+    }
+}
+
+// Manejar envío del formulario
+document.getElementById('formProducto').addEventListener('submit', function(e) {
+    e.preventDefault();
+    guardarProducto();
+});
+
+// Guardar producto
+function guardarProducto() {
+    const formData = {
+        producto_id: document.getElementById('productoId').value,
+        nombre: document.getElementById('nombre').value,
+        marca: document.getElementById('marca').value,
+        tipo: document.getElementById('tipo').value,
+        presentacion: document.getElementById('presentacion').value,
+        densidad: parseFloat(document.getElementById('densidad').value),
+        capacidad_ml: parseFloat(document.getElementById('capacidad_ml').value),
+        peso_envase: parseFloat(document.getElementById('peso_envase').value),
+        minimo_inventario: parseFloat(document.getElementById('minimo_inventario').value) / 100,
+        activo: document.getElementById('activo').checked ? 1 : 0
+    };
+    
+    fetch('/api/guardar-producto', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            window.location.href = "{{ url_for('productos') }}";
+        } else {
+            showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Error: ' + error);
+    });
+}
+
+// Eliminar producto
+function eliminarProducto(id, nombre) {
+    if (confirm(`¿Está seguro de eliminar el producto "${nombre}"? Esta acción no se puede deshacer.`)) {
+        fetch('/api/eliminar-producto', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                producto_id: id
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+    }
+}
+
+// Limpiar formulario
+function limpiarFormulario() {
+    // Resetear selects
+    document.getElementById('licor_tipo').value = '';
+    document.getElementById('licor_marca').value = '';
+    document.getElementById('licor_nombre').value = '';
+    document.getElementById('licor_presentacion').value = '';
+    
+    // Deshabilitar selects dependientes
+    document.getElementById('licor_marca').disabled = true;
+    document.getElementById('licor_nombre').disabled = true;
+    document.getElementById('licor_presentacion').disabled = true;
+    
+    // Limpiar campos del formulario
+    document.getElementById('formProducto').reset();
+    document.getElementById('productoId').value = '';
+    
+    showAlert('info', 'Formulario limpiado. Puede comenzar de nuevo.');
+}
+
+// Cargar productos
+function cargarProductos() {
+    window.location.reload();
+}
+
+// Mostrar alerta
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    document.getElementById('productoAlert').innerHTML = alertHtml;
+    
+    // Auto-ocultar alerta después de 5 segundos
+    setTimeout(() => {
+        const alert = document.querySelector('#productoAlert .alert');
+        if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    }, 5000);
+}
+</script>
+
+<style>
+.licor-item:hover {
+    background-color: #f8f9fa !important;
+}
+.licor-item.border-primary {
+    border: 2px solid #0d6efd !important;
+}
+.product-image {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    background-color: white;
+    padding: 2px;
+}
+</style>
+{% endblock %}
